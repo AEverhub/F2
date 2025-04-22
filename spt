@@ -1,1 +1,55 @@
-local Players = game:GetService("Players") local Player = Players.LocalPlayer local RunService = game:GetService("RunService") local Closest  local isAlive = function()    if not Player.Character then return false end    if not Player.Character:FindFirstChild("HumanoidRootPart") then return false end    if not Player.Character:FindFirstChild("Humanoid") then return false end    if Player.Character.Humanoid.Health <= 0 then return false end    return true end  local function getClosest()    if not isAlive() then return end     local closest = nil;    local distance = math.huge;     for i, v in pairs(Players:GetPlayers()) do        if v == Player then continue end        if v.Team == Player.Team then continue end        if not v.Character then continue end        if not v.Character:FindFirstChildOfClass("Humanoid") then continue end         local d = (v.Character.HumanoidRootPart.Position - Player.Character.HumanoidRootPart.Position).Magnitude         if d < distance then            distance = d            closest = v        end    end     return closest end  RunService.RenderStepped:Connect(function(deltaTime)    Closest = getClosest() end)  local old; old = hookmetamethod(game, "__namecall", function(this, ...)    local args = {...}    local method = getnamecallmethod()     if not checkcaller() and method == "FireServer" and tostring(this) == "WeaponHit" then        if Closest then            args[2]["part"] = Closest.Character.Head            args[2]["h"] = Closest.Character.Head        end    end     return old(this, unpack(args)) end)  local to0 = {"ShotCooldown", "HeadshotCooldown", "MinSpread", "MaxSpread", "TotalRecoilMax", "RecoilMin", "RecoilMax", "RecoilDecay"} local toInf = {"CurrentAmmo", "AmmoCapacity", "HeadshotDamage"}  -- retarded gun mods (re-equip your weapon) local old2; old2 = hookmetamethod(game, "__index", function(this, index)    if not checkcaller() and index == "Value" then        if table.find(toInf, tostring(this)) then            return math.huge        end        if table.find(to0, tostring(this)) then            return 0        end    end    return old2(this, index) end)
+local Players = game:GetService("Players")
+local Player = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+
+local function rand(min, max)
+    return math.random() * (max - min) + min
+end
+
+local weaponMods = {
+    ["ShotCooldown"] = function() return rand(0.001, 0.005) end,
+    ["HeadshotCooldown"] = function() return rand(0.001, 0.005) end,
+    ["MinSpread"] = function() return rand(0.01, 0.05) end,
+    ["MaxSpread"] = function() return rand(0.01, 0.05) end,
+    ["TotalRecoilMax"] = function() return rand(0.1, 0.3) end,
+    ["RecoilMin"] = function() return rand(0.1, 0.2) end,
+    ["RecoilMax"] = function() return rand(0.1, 0.2) end,
+    ["RecoilDecay"] = function() return rand(0.1, 0.3) end
+}
+
+local weaponModsInfinite = {
+    ["CurrentAmmo"] = function() return math.random(1000, 3000) end,
+    ["AmmoCapacity"] = function() return math.random(1000, 3000) end,
+    ["HeadshotDamage"] = function() return math.random(500, 1000) end,
+    ["BodyshotDamage"] = function() return math.random(300, 600) end
+}
+
+local old
+old = hookmetamethod(game, "__index", function(this, index)
+    if not checkcaller() and index == "Value" then
+        local name = tostring(this)
+        if weaponMods[name] then
+            return weaponMods[name]()
+        end
+        if weaponModsInfinite[name] then
+            return weaponModsInfinite[name]()
+        end
+    end
+    return old(this, index)
+end)
+
+local oldnamecall
+oldnamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+    if not checkcaller() then
+        if method == "Kick" then return end
+        if tostring(self) == "Ban" then return end
+    end
+    return oldnamecall(self, ...)
+end)
+
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "武器模組",
+    Text = "已啟用強化 & 防偵測模式",
+    Duration = 5
+})
